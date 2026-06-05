@@ -303,6 +303,11 @@ class Database:
             "SELECT COUNT(*) as c FROM words WHERE category='numbers'").fetchone()["c"]
         if num_cnt < 30:
             self._insert_numbers_words()
+        # A1 darajali so'zlar (agar yo'q bo'lsa)
+        a1_cnt = self.conn.execute(
+            "SELECT COUNT(*) as c FROM words WHERE category='a1_verbs'").fetchone()["c"]
+        if a1_cnt < 5:
+            self._insert_a1_words()
 
     def _insert_starter_words(self):
         words = [
@@ -427,6 +432,185 @@ class Database:
             ("Сто тысяч","Yuz ming","sto TY-syach","numbers","advanced","Сто тысяч рублей.","Yuz ming so'm."),
         ]
         for w in nums:
+            self.conn.execute("""INSERT OR IGNORE INTO words
+                (russian,uzbek,pronunciation,category,level,example_ru,example_uz)
+                VALUES(?,?,?,?,?,?,?)""", w)
+        self.conn.commit()
+
+    def _insert_a1_words(self):
+        """A1 darajali asosiy so'zlar (7 ta kategoriya, 60+ so'z)"""
+        words = [
+            # ── 1. Salomlashish va Mulozamat ──────────────
+            ("Здравствуйте", "Assalomu alaykum (rasmiy)", "Zdra-stvooy-tye", "a1_greeting", "beginner",
+             "Здравствуйте, как вас зовут?", "Assalomu alaykum, ismingiz nima?"),
+            ("Привет", "Salom (do'stona)", "Pree-vyet", "a1_greeting", "beginner",
+             "Привет, как дела?", "Salom, qanday ahvol?"),
+            ("Доброе утро", "Hayrli tong", "Dob-ro-ye oot-ro", "a1_greeting", "beginner",
+             "Доброе утро! Как вы?", "Hayrli tong! Qandaysiz?"),
+            ("Добрый день", "Hayrli kun", "Dob-riy den", "a1_greeting", "beginner",
+             "Добрый день, рад вас видеть!", "Hayrli kun, sizni ko'rib xursandman!"),
+            ("Добрый вечер", "Hayrli kech", "Dob-riy vye-cher", "a1_greeting", "beginner",
+             "Добрый вечер! Всё хорошо?", "Hayrli kech! Hammasi yaxshimi?"),
+            ("До свидания", "Xayr (rasmiy)", "Da svee-da-nya", "a1_greeting", "beginner",
+             "До свидания, увидимся завтра!", "Xayr, ertaga ko'rishguncha!"),
+            ("Пока", "Hayr (do'stona)", "Pa-ka", "a1_greeting", "beginner",
+             "Пока, увидимся!", "Hayr, ko'rishamiz!"),
+            ("Спасибо", "Rahmat", "Spa-see-ba", "a1_greeting", "beginner",
+             "Большое спасибо!", "Katta rahmat!"),
+            ("Пожалуйста", "Iltimos / Arziydi", "Pa-zha-lus-ta", "a1_greeting", "beginner",
+             "Пожалуйста, помогите мне.", "Iltimos, menga yordam bering."),
+            ("Извините", "Kechirasiz", "Eez-vee-nee-tye", "a1_greeting", "beginner",
+             "Извините, где туалет?", "Kechirasiz, hojatxona qayerda?"),
+            ("Да", "Ha", "Da", "a1_greeting", "beginner",
+             "Да, я понимаю.", "Ha, men tushunaman."),
+            ("Нет", "Yo'q / Yo'q", "Nyet", "a1_greeting", "beginner",
+             "Нет, я не знаю.", "Yo'q, men bilmayman."),
+
+            # ── 2. Kishilik va Egalik Olmoshlari ──────────
+            ("Я", "Men", "Ya", "a1_pronouns", "beginner",
+             "Я студент.", "Men talabaman."),
+            ("Ты", "Sen", "Ty", "a1_pronouns", "beginner",
+             "Ты мой друг.", "Sen mening do'stimsan."),
+            ("Он", "U (erkak)", "On", "a1_pronouns", "beginner",
+             "Он работает в офисе.", "U ofisda ishlaydi."),
+            ("Она", "U (ayol)", "A-na", "a1_pronouns", "beginner",
+             "Она учится в университете.", "U universitetda o'qiydi."),
+            ("Мы", "Biz", "My", "a1_pronouns", "beginner",
+             "Мы живём в Ташкенте.", "Biz Toshkentda yashaymiz."),
+            ("Вы", "Siz", "Vy", "a1_pronouns", "beginner",
+             "Вы говорите по-русски?", "Siz rus tilida gapirасизми?"),
+            ("Они", "Ular", "A-nee", "a1_pronouns", "beginner",
+             "Они друзья.", "Ular do'stlar."),
+            ("Мой / Моя", "Mening (erkak/ayol)", "Moy / Ma-ya", "a1_pronouns", "beginner",
+             "Мой брат — врач. Моя сестра — учитель.", "Akam shifokor. Opam o'qituvchi."),
+            ("Твой / Твоя", "Sening (erkak/ayol)", "Tvoy / Tva-ya", "a1_pronouns", "beginner",
+             "Твой телефон здесь.", "Sening telefoningiz bu yerda."),
+            ("Наш / Наша", "Bizning (erkak/ayol)", "Nash / Na-sha", "a1_pronouns", "beginner",
+             "Наш город большой.", "Bizning shahrimiz katta."),
+            ("Ваш / Ваша", "Sizning (erkak/ayol)", "Vash / Va-sha", "a1_pronouns", "beginner",
+             "Ваша книга на столе.", "Sizning kitobingiz stolda."),
+
+            # ── 3. Eng Muhim Fe'llar ───────────────────────
+            ("Быть", "Bo'lmoq", "Byt'", "a1_verbs", "beginner",
+             "Я хочу быть врачом.", "Men shifokor bo'lmoqchiman."),
+            ("Жить", "Yashamoq", "Zhyt'", "a1_verbs", "beginner",
+             "Я живу в Ташкенте.", "Men Toshkentda yashayman."),
+            ("Работать", "Ishlamoq", "Ra-bo-tat'", "a1_verbs", "beginner",
+             "Он работает каждый день.", "U har kuni ishlaydi."),
+            ("Учиться", "O'qimoq / Tahsil olmoq", "U-chit'-sya", "a1_verbs", "beginner",
+             "Я учусь в университете.", "Men universitetda o'qiyman."),
+            ("Говорить", "Gapirmoq", "Ga-va-reet'", "a1_verbs", "beginner",
+             "Я говорю по-русски.", "Men rus tilida gapiraman."),
+            ("Понимать", "Tushunmoq", "Pa-nee-mat'", "a1_verbs", "beginner",
+             "Я не понимаю.", "Men tushunmayapman."),
+            ("Знать", "Bilmoq", "Znat'", "a1_verbs", "beginner",
+             "Я знаю русский язык.", "Men rus tilini bilaman."),
+            ("Читать", "O'qimoq (kitob/matn)", "Chee-tat'", "a1_verbs", "beginner",
+             "Она читает книгу.", "U kitob o'qiyapti."),
+            ("Писать", "Yozmoq", "Pee-sat'", "a1_verbs", "beginner",
+             "Я пишу письмо.", "Men xat yozyapman."),
+            ("Делать", "Qilmoq", "Dye-lat'", "a1_verbs", "beginner",
+             "Что ты делаешь?", "Sen nima qilyapsan?"),
+            ("Хотеть", "Xohlamoq", "Kha-tyet'", "a1_verbs", "beginner",
+             "Я хочу есть.", "Men yemoqchi edim."),
+            ("Идти", "Bormoq (piyoda)", "Eet-tee", "a1_verbs", "beginner",
+             "Я иду в школу.", "Men maktabga borayapman."),
+            ("Ехать", "Bormoq (transportda)", "Ye-khat'", "a1_verbs", "beginner",
+             "Мы едем на работу.", "Biz ishga ketyapmiz."),
+
+            # ── 4. Oila va Odamlar ────────────────────────
+            ("Семья", "Oila", "Syem'-ya", "a1_family", "beginner",
+             "Моя семья большая.", "Mening oilam katta."),
+            ("Отец / Папа", "Ota / Dada", "A-tyets / Pa-pa", "a1_family", "beginner",
+             "Мой папа — инженер.", "Dadам muhandis."),
+            ("Мать / Мама", "Ona / Oyi", "Mat' / Ma-ma", "a1_family", "beginner",
+             "Моя мама работает дома.", "Oyim uyda ishlaydi."),
+            ("Брат", "Aka / Uka", "Brat", "a1_family", "beginner",
+             "У меня два брата.", "Menda ikki aka bor."),
+            ("Сестра", "Opa / Singil", "Syes-tra", "a1_family", "beginner",
+             "Моя сестра — студентка.", "Mening opam talaba."),
+            ("Друг", "Do'st", "Droog", "a1_family", "beginner",
+             "Он мой лучший друг.", "U mening eng yaxshi do'stim."),
+            ("Человек", "Inson / Odam", "Che-la-vyek", "a1_family", "beginner",
+             "Он хороший человек.", "U yaxshi odam."),
+            ("Ребёнок", "Bola", "Rye-byo-nak", "a1_family", "beginner",
+             "Маленький ребёнок плачет.", "Kichkina bola yig'layapti."),
+            ("Муж", "Er (turmush o'rtoq)", "Moozh", "a1_family", "beginner",
+             "Мой муж — врач.", "Erim shifokor."),
+            ("Жена", "Xotin (rafiqа)", "Zhe-na", "a1_family", "beginner",
+             "Его жена очень красивая.", "Uning xotini juda chiroyli."),
+
+            # ── 5. Joylar va Transport ────────────────────
+            ("Город", "Shahar", "Go-rat", "a1_places", "beginner",
+             "Ташкент — большой город.", "Toshkent — katta shahar."),
+            ("Дом", "Uy / Bino", "Dom", "a1_places", "beginner",
+             "Я дома.", "Men uydaman."),
+            ("Работа", "Ish (joy)", "Ra-bo-ta", "a1_places", "beginner",
+             "Я на работе.", "Men ishda."),
+            ("Школа", "Maktab", "Shko-la", "a1_places", "beginner",
+             "Дети идут в школу.", "Bolalar maktabga borishyapti."),
+            ("Университет", "Universitet", "Oo-nee-vyer-see-tyet", "a1_places", "beginner",
+             "Я учусь в университете.", "Men universitetda o'qiyman."),
+            ("Магазин", "Do'kon", "Ma-ga-zeen", "a1_places", "beginner",
+             "Я иду в магазин.", "Men do'konga borayapman."),
+            ("Улица", "Ko'cha", "Oo-lee-tsa", "a1_places", "beginner",
+             "Дети играют на улице.", "Bolalar ko'chada o'ynayapti."),
+            ("Ресторан", "Restoran", "Ryes-ta-ran", "a1_places", "beginner",
+             "Давай пойдём в ресторан.", "Keling, restoranga boraylik."),
+            ("Кафе", "Kafe", "Ka-fe", "a1_places", "beginner",
+             "Мы сидим в кафе.", "Biz kafeda o'tiribmiz."),
+            ("Машина", "Mashina", "Ma-shee-na", "a1_places", "beginner",
+             "Это моя машина.", "Bu mening mashinam."),
+            ("Автобус", "Avtobus", "Af-to-boos", "a1_places", "beginner",
+             "Я еду на автобусе.", "Men avtobusda ketyapman."),
+            ("Метро", "Metro", "Myet-ro", "a1_places", "beginner",
+             "Где станция метро?", "Metro bekati qayerda?"),
+
+            # ── 6. Vaqt va Savollar ───────────────────────
+            ("Сегодня", "Bugun", "Sye-vod-nya", "a1_time", "beginner",
+             "Сегодня хорошая погода.", "Bugun ob-havo yaxshi."),
+            ("Вчера", "Kecha", "Fche-ra", "a1_time", "beginner",
+             "Вчера я был дома.", "Kecha men uydaydim."),
+            ("Завтра", "Ertaga", "Zav-tra", "a1_time", "beginner",
+             "Завтра у меня урок.", "Ertaga mening darsim bor."),
+            ("Утро", "Ertalab", "Oot-ra", "a1_time", "beginner",
+             "Доброе утро!", "Hayrli tong!"),
+            ("День", "Kunduzi", "Dyen", "a1_time", "beginner",
+             "Добрый день!", "Hayrli kun!"),
+            ("Вечер", "Kechqurun", "Vye-cher", "a1_time", "beginner",
+             "Добрый вечер!", "Hayrli kechqurun!"),
+            ("Кто?", "Kim?", "Kto", "a1_questions", "beginner",
+             "Кто это?", "Bu kim?"),
+            ("Что?", "Nima?", "Chto", "a1_questions", "beginner",
+             "Что это такое?", "Bu nima?"),
+            ("Где?", "Qayerda?", "Gdye", "a1_questions", "beginner",
+             "Где вы живёте?", "Siz qayerda yashaysiz?"),
+            ("Куда?", "Qayerga?", "Koo-da", "a1_questions", "beginner",
+             "Куда вы идёте?", "Siz qayerga borayapsiz?"),
+            ("Когда?", "Qachon?", "Kag-da", "a1_questions", "beginner",
+             "Когда начинается урок?", "Dars qachon boshlanadi?"),
+            ("Почему?", "Nega?", "Pa-che-moo", "a1_questions", "beginner",
+             "Почему вы не пришли?", "Nega kelмадingiz?"),
+            ("Сколько?", "Qancha?", "Skol'-ka", "a1_questions", "beginner",
+             "Сколько это стоит?", "Bu qancha turadi?"),
+
+            # ── 7. Oziq-ovqat ─────────────────────────────
+            ("Хлеб", "Non", "Khlyep", "a1_food", "beginner",
+             "Купи хлеб, пожалуйста.", "Non sotib ol, iltimos."),
+            ("Вода", "Suv", "Va-da", "a1_food", "beginner",
+             "Дайте мне воды.", "Menga suv bering."),
+            ("Чай", "Choy", "Chay", "a1_food", "beginner",
+             "Хотите чай или кофе?", "Choy yoki kofe ichasizmi?"),
+            ("Кофе", "Kofe", "Ko-fe", "a1_food", "beginner",
+             "Один кофе, пожалуйста.", "Bitta kofe, iltimos."),
+            ("Мясо", "Go'sht", "Mya-sa", "a1_food", "beginner",
+             "Я люблю мясо.", "Men go'sht yaxshi ko'raman."),
+            ("Молоко", "Sut", "Ma-la-ko", "a1_food", "beginner",
+             "Стакан молока, пожалуйста.", "Bir stakan sut, iltimos."),
+            ("Сахар", "Shakar", "Sa-khar", "a1_food", "beginner",
+             "Вам сахар в чай?", "Choyingizga shakar solaymi?"),
+        ]
+        for w in words:
             self.conn.execute("""INSERT OR IGNORE INTO words
                 (russian,uzbek,pronunciation,category,level,example_ru,example_uz)
                 VALUES(?,?,?,?,?,?,?)""", w)
