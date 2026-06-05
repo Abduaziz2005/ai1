@@ -106,16 +106,17 @@ function navigate(page){
   window.scrollTo(0,0);
   // Sahifaga mos ma'lumot yuklash
   const loaders = {
-    home: loadHome,
+    home:       loadHome,
     vocabulary: loadVocabulary,
     flashcards: ()=>{},
-    grammar: loadGrammar,
-    games: loadGameHighscores,
-    quiz: ()=>{},
-    chat: loadChatHistory,
-    schedule: loadSchedule,
-    progress: loadProgress,
-    settings: loadSettings,
+    grammar:    loadGrammar,
+    games:      loadGameHighscores,
+    quiz:       ()=>{},
+    chat:       loadChatHistory,
+    schedule:   loadSchedule,
+    progress:   ()=>{ loadProgress(); loadMonthlyProgress(); loadGameBest(); },
+    settings:   ()=>{ loadSettings(); loadShortcuts(); },
+    streak:     loadStreak,
   };
   if(loaders[page]) loaders[page]();
 }
@@ -379,6 +380,7 @@ async function loadVocabulary(){
   State.words = words;
   renderWordGrid(words);
   await loadWordCategories();
+  await loadCategoryPanel();
 }
 
 async function loadWordCategories(){
@@ -400,7 +402,7 @@ function renderWordGrid(words){
   }
   $("wordCount").textContent=`${words.length} ta so'z topildi`;
   grid.innerHTML = words.map(w=>`
-    <div class="word-card" id="wcard-${w.id}">
+    <div class="word-card" id="wcard-${w.id}" data-wid="${w.id}">
       <div class="wc-top">
         <div class="wc-russian">${w.russian}</div>
         <span class="wc-level level-${w.level}">${levelEmoji(w.level)}</span>
@@ -412,6 +414,8 @@ function renderWordGrid(words){
         <span class="wc-cat">${w.category||"umumiy"}</span>
         ${w.edited_by_user?`<span class="wc-edited">✏️ tahrirlangan</span>`:""}
         <button class="btn btn-sm btn-ghost" onclick="openEditWord(${w.id})" style="margin-left:auto">✏️</button>
+        <button class="btn btn-sm btn-ghost btn-tts" title="Talaffuz" onclick="speakWord('${w.russian.replace(/'/g,"\\'")}')">🔊</button>
+        <button class="btn btn-sm btn-ghost btn-stats" title="Statistika" onclick="openWordStats(${w.id})">📊</button>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:8px">
         <span>✅ ${w.times_correct||0} · ❌ ${w.times_wrong||0}</span>
@@ -425,7 +429,19 @@ function debounceWordSearch(){
   State.searchTimer = setTimeout(()=>{ State.wordOffset=0; loadVocabulary(); }, 350);
 }
 
-function openAddWordModal(){ openModal("addWordModal"); }
+function openAddWordModal(){
+  openModal("addWordModal");
+  // Duplicate warn div qo'shish (birinchi marta)
+  const awRuInput = $("awRu");
+  if (awRuInput && !$("dupWarn")) {
+    const warn = document.createElement("div");
+    warn.id = "dupWarn";
+    warn.className = "dup-warn";
+    warn.style.display = "none";
+    awRuInput.parentElement.insertAdjacentElement("afterend", warn);
+    awRuInput.addEventListener("input", checkDuplicateOnInput);
+  }
+}
 
 async function aiTranslateWord(){
   const ru = $("awRu").value.trim();
@@ -538,6 +554,8 @@ function showFlashcard(){
   $("fcTranslation").textContent = card.uzbek;
   $("fcExample").textContent = card.example_ru||"";
   $("fcExampleUz").textContent = card.example_uz||"";
+  // TTS: so'zni avtomatik o'qish
+  if (card.russian) speakWord(card.russian);
 }
 
 function flipCard(){
@@ -674,6 +692,7 @@ function filterGrammarCat(cat, el){
 }
 
 async function openGrammarDetail(id){
+  window._currentGrammarId = id;
   const r = await api(`/api/grammar/${id}`);
   if(!r||r.error) return;
   State.currentGrammarItem=r;
@@ -1826,15 +1845,6 @@ function showNumbersQuestion(){
     </div>`;
 }
 
-// loadVocabulary ga kategoriya panelini qo'shish uchun patch
-const _origLoadVocabulary = loadVocabulary;
-async function loadVocabulary(){
-  await _origLoadVocabulary();
-  await loadCategoryPanel();
-}
-
-
-
 // ══════════════════════════════════════════════════
 // YANGI FUNKSIYALAR — RusLearn Pro v2.0
 // ══════════════════════════════════════════════════
@@ -2212,17 +2222,9 @@ async function openDuplicates() {
   openModal("duplicatesModal");
 }
 
-// ── navigate funksiyasini kengaytirish ────────────
-const _origNavigate = navigate;
-function navigate(page) {
-  _origNavigate(page);
-  if (page === "streak")   loadStreak();
-  if (page === "progress") { loadMonthlyProgress(); loadGameBest(); }
-  if (page === "settings") { loadShortcuts(); }
-}
+// ── navigate funksiyasi loaders ichida kengaytirilgan (yuqorida)
 
 // ── init ni kengaytirish (wotd va streak sidebar) ──
-const _origInit = typeof init === "function" ? init : null;
 document.addEventListener("DOMContentLoaded", async function() {
   // Word of the day bosh sahifada
   await loadWordOfDay();
@@ -2233,69 +2235,4 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
 });
 
-// wordGrid render ga statistika tugmasini qo'shish
-const _origRenderWordGrid = typeof renderWordGrid === "function" ? renderWordGrid : null;
-if (_origRenderWordGrid) {
-  renderWordGrid = function(words) {
-    _origRenderWordGrid(words);
-    // Har bir word-card ga stats tugma
-    document.querySelectorAll(".word-card[data-wid]").forEach(card => {
-      const wid = card.dataset.wid;
-      if (!card.querySelector(".btn-stats")) {
-        const btn = document.createElement("button");
-        btn.className = "btn btn-ghost btn-sm btn-stats";
-        btn.title = "Statistika";
-        btn.textContent = "📊";
-        btn.onclick = (e) => { e.stopPropagation(); openWordStats(wid); };
-        card.appendChild(btn);
-      }
-      // TTS tugma
-      if (!card.querySelector(".btn-tts")) {
-        const ru = card.querySelector(".word-ru")?.textContent || "";
-        const btnTts = document.createElement("button");
-        btnTts.className = "btn btn-ghost btn-sm btn-tts";
-        btnTts.title = "Talaffuz";
-        btnTts.textContent = "🔊";
-        btnTts.onclick = (e) => { e.stopPropagation(); speakWord(ru); };
-        card.appendChild(btnTts);
-      }
-    });
-  };
-}
 
-// Flashcard ga TTS qo'shish
-const _origShowFlashcard = typeof showFlashcard === "function" ? showFlashcard : null;
-if (_origShowFlashcard) {
-  showFlashcard = function() {
-    _origShowFlashcard();
-    const word = $("fcWord")?.textContent;
-    if (word && word !== "-") speakWord(word);
-  };
-}
-
-// Add Word modal ochilganda duplicate listener
-const _origOpenAddWordModal = typeof openAddWordModal === "function" ? openAddWordModal : null;
-if (_origOpenAddWordModal) {
-  openAddWordModal = function() {
-    _origOpenAddWordModal();
-    // Dup warn div qo'shish
-    const awRuDiv = $("awRu")?.parentElement;
-    if (awRuDiv && !$("dupWarn")) {
-      const warn = document.createElement("div");
-      warn.id = "dupWarn";
-      warn.className = "dup-warn";
-      warn.style.display = "none";
-      awRuDiv.parentElement.insertBefore(warn, awRuDiv.nextSibling);
-    }
-    $("awRu")?.addEventListener("input", checkDuplicateOnInput);
-  };
-}
-
-// Grammar modal ochilganda ID ni saqlash
-const _origOpenGrammarDetail = typeof openGrammarDetail === "function" ? openGrammarDetail : null;
-if (_origOpenGrammarDetail) {
-  openGrammarDetail = async function(id) {
-    window._currentGrammarId = id;
-    await _origOpenGrammarDetail(id);
-  };
-}
